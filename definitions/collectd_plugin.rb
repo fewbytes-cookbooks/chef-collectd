@@ -22,7 +22,7 @@ define :collectd_plugin, :options => {}, :template => nil, :cookbook => nil do
     owner "root"
     group "root"
     mode "644"
-    if params[:template].nil?
+    if not params[:template]
       source "plugin.conf.erb"
       cookbook params[:cookbook] || "collectd"
     else
@@ -37,7 +37,7 @@ end
 define :collectd_python_plugin, :options => {}, :module => nil, :path => nil do
   begin
     t = resources(:template => "/etc/collectd/plugins/python.conf")
-  rescue ArgumentError,Chef::Exceptions::ResourceNotFound
+  rescue ArgumentError, ::Chef::Exceptions::ResourceNotFound
     collectd_plugin "python" do
       options :paths=>[node[:collectd][:plugin_dir]], :modules=>{}
       template "python_plugin.conf.erb"
@@ -45,8 +45,27 @@ define :collectd_python_plugin, :options => {}, :module => nil, :path => nil do
     end
     retry
   end
-  if not params[:path].nil?
+  if params[:path]
     t.variables[:options][:paths] << params[:path]
   end
   t.variables[:options][:modules][params[:module] || params[:name]] = params[:options]
+end
+
+define :collectd_java_plugin, :options => {}, :module => nil, :classpath => nil, :class_name => nil do
+  begin
+    t = resources(:template => "/etc/collectd/plugins/java.conf")
+  rescue ArgumentError, ::Chef::Exceptions::ResourceNotFound
+    classpaths = %w(collectd-api generic-jmx).map{|j| "/usr/share/collectd/java/#{j}.jar"}
+    collectd_plugin "java" do
+      options :classpaths => classpaths, :plugins => {}
+      template "java_plugin.conf.erb"
+      cookbook "collectd"
+    end
+    retry
+  end
+  if params[:classpath]
+    t.variables[:options][:classpaths] << params[:classpath]
+  end
+  params[:options][:_class_name] = params[:class_name] if params[:class_name]
+  t.variables[:options][:plugins][params[:plugin] || params[:name]] = params[:options]
 end

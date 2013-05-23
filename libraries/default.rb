@@ -17,9 +17,9 @@
 # limitations under the License.
 #
 
-def collectd_key(option)
-  return option.to_s.split('_').map{|x| x.capitalize}.join() if option.instance_of?(Symbol)
-  "#{option}"
+def collectd_key(key)
+  return key.to_s.split('_').map{|x| x.capitalize}.join() if key.instance_of?(Symbol)
+  "#{key}"
 end
 
 def collectd_option(option)
@@ -29,18 +29,23 @@ end
 
 def collectd_settings(options, level=0)
   indent = '  ' * level
+  return "#{indent}#{collectd_option(options)}" unless options.respond_to? :each
   output = []
-  options.each_pair do |key, value|
-    if value.is_a? Array
+  options.each do |key, value|
+    case value
+    when Array
       value.each do |subvalue|
-        output << "#{indent}#{collectd_key(key)} #{collectd_option(subvalue)}"
+        output << collectd_settings({key => subvalue}, level)
       end
-    elsif value.is_a? Hash
-      value.each_pair do |name, suboptions|
-        output << "#{indent}<#{key} \"#{name}\">\n#{collectd_settings(suboptions, level+1)}\n#{indent}</#{key}>"
+    when Hash
+      if value.has_key? :_name
+        name = value.delete(:_name)
+        output << "#{indent}<#{key} \"#{name}\">\n#{collectd_settings(value, level+1)}\n#{indent}</#{key}>"
+      else
+        output << "#{indent}<#{key}>\n#{collectd_settings(value, level+1)}\n#{indent}</#{key}>"
       end
     else
-      output << "#{indent}#{collectd_key(key)} #{collectd_option(value)}"
+      output << "#{indent}#{key} #{collectd_option(value)}"
     end
   end
   output.join("\n")
